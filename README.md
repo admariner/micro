@@ -1,34 +1,26 @@
-# Micro
+# Micro [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![Discord](https://img.shields.io/badge/discord-chat-800080?style=flat-square)](https://discord.gg/UmFkPbu32m)
 
 A Go microservices toolkit
 
 ## Overview
 
 Micro is an ecosystem for Go microservices development. It provides the tools required for building services in the cloud. 
-The core of Micro is the [Go Micro](https://go-micro.dev) framework, which developers import and use in their code to 
-write services. Surrounding this we introduce a number of tools like a CLI and API proxy to make it easy to serve and consume 
-services. 
+The core of Micro is the [Go Micro](https://github.com/micro/go-micro) framework, which developers import and use in their code to 
+write services. Surrounding this we introduce a number of tools to make it easy to serve and consume services. 
 
 ## Install the CLI
 
-`mu` is a single binary
+Install `micro` via `go get`
 
 ```
-go install github.com/micro/micro/v5/mu@latest
+go get github.com/micro/micro/v5@latest
 ```
 
 For releases see the [latest](https://github.com/micro/micro/releases/latest) tag
 
-Check the version
+## Create a service
 
-```
-mu --version
-mu version v5.0.0
-```
-
-## Usage
-
-Create your service using [Go Micro](https://go-micro.dev)
+Create your service using [Go Micro](https://github.com/micro/go-micro)
 
 ```go
 package main
@@ -64,28 +56,28 @@ func main() {
 }
 ```
 
-Run your service
+Run a service
 
 ```
-mu run
+micro run
 ```
 
-List your services
+List services
 
 ```
-mu services
+micro services
 ```
 
 Call a service
 
 ```
-mu call helloworld Say.Hello '{"name": "Asim"}'
+micro call helloworld Say.Hello '{"name": "Asim"}'
 ```
 
 Describe a service
 
 ```
-mu describe helloworld
+micro describe helloworld
 ```
 
 Output
@@ -139,15 +131,62 @@ Output
 }
 ```
 
-## API
+## Create a client
 
-Run the API proxy
+Create a client to call the service
+
+```go
+package main
+
+import (
+        "context"
+        "fmt"
+
+        "go-micro.dev/v5"
+)
+
+type Request struct {
+        Name string
+}
+
+type Response struct {
+        Message string
+}
+
+func main() {
+        client := micro.New("helloworld").Client()
+
+        req := client.NewRequest("helloworld", "Say.Hello", &Request{Name: "John"})
+
+        var rsp Response
+
+        err := client.Call(context.TODO(), req, &rsp)
+        if err != nil {
+                fmt.Println(err)
+                return
+        }
+
+        fmt.Println(rsp.Message)
+}
+```
+
+## Make a HTTP call
+
+Call services via http using the [micro-api](https://github.com/micro/micro/tree/master/cmd/micro-api)
+
+Install the API 
 
 ```
-mu api
+go get github.com/micro/micro/cmd/micro-api@latest
 ```
 
-If you have [helloworld](https://github.com/micro/helloworld) running
+Run the API
+
+```
+micro-api
+```
+
+If you have the service running
 
 ```
 curl http://localhost:8080/helloworld/Say/Hello -d '{"name": "John"}'
@@ -158,29 +197,3 @@ Or with headers
 ```
 curl -H 'Micro-Service: helloworld' -H 'Micro-Endpoint: Say.Hello' http://localhost:8080/ -d '{"name": "John"}'
 ```
-
-## MCP
-
-Experimental support for [MCP](https://github.com/modelcontextprotocol)
-
-```
-mu mcp
-```
-
-Supports the tools `services`, `call`, `describe`.
-
-## Network
-
-To enable tailscale via the api
-
-```
-mu api --network=tailscale
-```
-
-Ensure to export your `TS_AUTHKEY`
-
-## Plugins
-
-Plugins can be found in [micro/plugins](https://github.com/micro/plugins) which enable various underlying interface implementations.
-
-Note: This requires a rebuild of the binary to include those plugins. There is no clean approach to this yet.
