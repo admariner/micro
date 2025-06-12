@@ -1,91 +1,63 @@
-# Micro
+# Micro [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![Discord](https://img.shields.io/badge/discord-chat-800080?style=flat-square)](https://discord.gg/UmFkPbu32m)
 
 A Go microservices toolkit
 
 ## Overview
 
-Micro is an ecosystem for Go microservices development. It provides the tools required for building services in the cloud. 
-The core of Micro is the [Go Micro](https://go-micro.dev) framework, which developers import and use in their code to 
-write services. Surrounding this we introduce a number of tools like a CLI and API proxy to make it easy to serve and consume 
-services. 
+Micro is a toolkit for Go microservices development. It provides the foundation for building services in the cloud. 
+The core of Micro is the [Go Micro](https://github.com/micro/go-micro) framework, which developers import and use in their code to 
+write services. Surrounding this we introduce a number of tools to make it easy to serve and consume services. 
 
 ## Install the CLI
 
-`mu` is a single binary
+Install `micro` via `go get`
 
 ```
-go install github.com/micro/micro/v5/mu@latest
+go get github.com/micro/micro/v5@latest
+```
+
+Or via install script
+
+```
+wget -q  https://raw.githubusercontent.com/micro/micro/master/scripts/install.sh -O - | /bin/bash
 ```
 
 For releases see the [latest](https://github.com/micro/micro/releases/latest) tag
 
-Check the version
+## Create a service
+
+Create your service (all setup is now automatic!):
 
 ```
-mu --version
-mu version v5.0.0
+micro new helloworld
 ```
 
-## Usage
+This will:
+- Create a new service in the `helloworld` directory
+- Automatically run `go mod tidy` and `make proto` for you
+- Show the updated project tree including generated files
+- Warn you if `protoc` is not installed, with install instructions
 
-Create your service using [Go Micro](https://go-micro.dev)
+## Run the service
 
-```go
-package main
-
-import (
-        "go-micro.dev/v5"
-)
-
-type Request struct {
-        Name string `json:"name"`
-}
-
-type Response struct {
-        Message string `json:"message"`
-}
-
-type Say struct{}
-
-func (h *Say) Hello(ctx context.Context, req *Request, rsp *Response) error {
-        rsp.Message = "Hello " + req.Name
-        return nil
-}
-
-func main() {
-        // create the service
-        service := micro.New("helloworld")
-
-        // register handler
-        service.Handle(new(Say))
-
-        // run the service
-        service.Run()
-}
-```
-
-Run your service
+Run the service
 
 ```
-mu run
+micro run
 ```
 
-List your services
+List services to see it's running and registered itself
 
 ```
-mu services
+micro services
 ```
 
-Call a service
+## Describe the service
+
+Describe the service to see available endpoints
 
 ```
-mu call helloworld Say.Hello '{"name": "Asim"}'
-```
-
-Describe a service
-
-```
-mu describe helloworld
+micro describe helloworld
 ```
 
 Output
@@ -102,7 +74,7 @@ Output
                 "type": "Request",
                 "values": [
                     {
-                        "name": "string",
+                        "name": "name",
                         "type": "string",
                         "values": null
                     }
@@ -113,14 +85,30 @@ Output
                 "type": "Response",
                 "values": [
                     {
-                        "name": "string",
+                        "name": "msg",
                         "type": "string",
                         "values": null
                     }
                 ]
             },
             "metadata": {},
-            "name": "Say.Hello"
+            "name": "Helloworld.Call"
+        },
+        {
+            "request": {
+                "name": "Context",
+                "type": "Context",
+                "values": null
+            },
+            "response": {
+                "name": "Stream",
+                "type": "Stream",
+                "values": null
+            },
+            "metadata": {
+                "stream": "true"
+            },
+            "name": "Helloworld.Stream"
         }
     ],
     "nodes": [
@@ -132,55 +120,112 @@ Output
                 "server": "mucp",
                 "transport": "http"
             },
-            "id": "helloworld-9988def2-2ee4-45f1-9cf7-faa62535538f",
-            "address": "172.17.0.1:40397"
+            "id": "helloworld-31e55be7-ac83-4810-89c8-a6192fb3ae83",
+            "address": "127.0.0.1:39963"
         }
     ]
 }
 ```
 
-## API
+## Call the service
 
-Run the API proxy
-
-```
-mu api
-```
-
-If you have [helloworld](https://github.com/micro/helloworld) running
+Call via RPC endpoint
 
 ```
-curl http://localhost:8080/helloworld/Say/Hello -d '{"name": "John"}'
+micro call helloworld Helloworld.Call '{"name": "Asim"}'
 ```
 
-Or with headers
+Call via dynamic CLI mapping
 
 ```
-curl -H 'Micro-Service: helloworld' -H 'Micro-Endpoint: Say.Hello' http://localhost:8080/ -d '{"name": "John"}'
+micro helloworld call --name=Asim
 ```
 
-## MCP
+## Create a client
 
-Experimental support for [MCP](https://github.com/modelcontextprotocol)
+Create a client to call the service
+
+```go
+package main
+
+import (
+        "context"
+        "fmt"
+
+        "go-micro.dev/v5"
+)
+
+type Request struct {
+        Name string
+}
+
+type Response struct {
+        Message string
+}
+
+func main() {
+        client := micro.New("helloworld").Client()
+
+        req := client.NewRequest("helloworld", "Helloworld.Call", &Request{Name: "John"})
+
+        var rsp Response
+
+        err := client.Call(context.TODO(), req, &rsp)
+        if err != nil {
+                fmt.Println(err)
+                return
+        }
+
+        fmt.Println(rsp.Message)
+}
+```
+
+## Protobuf 
+
+Use protobuf for code generation with [protoc-gen-micro](https://github.com/micro/micro/tree/master/cmd/protoc-gen-micro)
+
+## Server
+
+The micro server is an api and web dashboard that provide a fixed entrypoint for seeing and querying services.
+
+Run it like so
 
 ```
-mu mcp
+micro server
 ```
 
-Supports the tools `services`, `call`, `describe`.
+Then browse to [localhost:8080](http://localhost:8080)
 
-## Network
+### API Endpoints 
 
-To enable tailscale via the api
+The API provides a fixed HTTP entrypoint for calling services
 
 ```
-mu api --network=tailscale
+curl http://localhost:8080/api/helloworld/Helloworld/Call -d '{"name": "John"}'
+```
+See /api for more details and documentation for each service
+
+### Web Dashboard 
+
+The web dashboard provides a modern, secure UI for managing and exploring your Micro services. Major features include:
+
+- **Dynamic Service & Endpoint Forms**: Browse all registered services and endpoints. For each endpoint, a dynamic form is generated for easy testing and exploration.
+- **API Documentation**: The `/api` page lists all available services and endpoints, with request/response schemas and a sidebar for quick navigation. A documentation banner explains authentication requirements.
+- **JWT Authentication**: All login and token management uses a custom JWT utility. Passwords are securely stored with bcrypt. All `/api/x` endpoints and authenticated pages require an `Authorization: Bearer <token>` header (or `micro_token` cookie as fallback).
+- **Token Management**: The `/auth/tokens` page allows you to generate, view (obfuscated), and copy JWT tokens. Tokens are stored and can be revoked. When a user is deleted, all their tokens are revoked immediately.
+- **User Management**: The `/auth/users` page allows you to create, list, and delete users. Passwords are never shown or stored in plaintext.
+- **Token Revocation**: JWT tokens are stored and checked for revocation on every request. Revoked or deleted tokens are immediately invalidated.
+- **Sidebar Logic**: Sidebar API endpoints only appear on the `/api` page for a focused experience.
+- **Security**: All protected endpoints use consistent authentication logic. Unauthorized or revoked tokens receive a 401 error. All sensitive actions require authentication.
+- **Modern UI**: Clean, responsive design with improved form and button styling for a better user experience.
+- **Logs & Status**: View service logs and status (PID, uptime, etc) directly from the dashboard.
+
+To get started, run:
+
+```
+micro server
 ```
 
-Ensure to export your `TS_AUTHKEY`
+Then browse to [localhost:8080](http://localhost:8080) and log in with the default admin account (`admin`/`micro`).
 
-## Plugins
-
-Plugins can be found in [micro/plugins](https://github.com/micro/plugins) which enable various underlying interface implementations.
-
-Note: This requires a rebuild of the binary to include those plugins. There is no clean approach to this yet.
+> **Note:** See the `/api` page for details on API authentication and how to generate tokens for use with the HTTP API
